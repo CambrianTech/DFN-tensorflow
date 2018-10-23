@@ -12,6 +12,11 @@ from PIL import Image
 from config import cfg
 from utils import *
 from dfn_model import DFN
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--input_dir', type=str, default='data', help='Training input path')
+args = parser.parse_args()
 
 def train(result, model, logdir, train_sum_freq, val_sum_freq, save_freq, models, fd):
 	
@@ -115,13 +120,15 @@ def test(result, model, models, test_outputs):
 def main(_):
 	
 	# get dataset info
+	cfg.images = args.input_dir
+	
 	result = create_image_lists(cfg.images)
 
 	if len(result["train"]) < cfg.batch_size:
-		raise ValueError("%d training images found" % len(result["train"]))
+		raise ValueError("%d training images found at path '%s'" % (len(result["train"]), cfg.images))
 
 	if len(result["val"]) < cfg.batch_size:
-		raise ValueError("%d validation images found" % len(result["val"]))
+		raise ValueError("%d validation images found at path '%s'" % (len(result["val"]), cfg.images))
 
 	max_iters = len(result["train"]) * cfg.epoch // cfg.batch_size
 	
