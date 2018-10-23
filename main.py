@@ -116,6 +116,13 @@ def main(_):
 	
 	# get dataset info
 	result = create_image_lists(cfg.images)
+
+	if len(result["train"]) < cfg.batch_size:
+		raise ValueError("%d training images found" % len(result["train"]))
+
+	if len(result["val"]) < cfg.batch_size:
+		raise ValueError("%d validation images found" % len(result["val"]))
+
 	max_iters = len(result["train"]) * cfg.epoch // cfg.batch_size
 	
 	tf.logging.info('Loading Graph...')

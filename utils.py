@@ -11,26 +11,29 @@ from PIL import Image
 
 # Take in image directory and return a directory containing image directory
 # and images split into train, val, test
-def create_image_lists(image_dir):
+def create_image_lists(image_dir, batch_size=32):
 	
 	result = {}
 	
 	training_images = []
 	validation_images = []
 	testing_images = []
+
+	included_extensions = ['jpg', 'png']
 	
 	for category in ["train", "val", "test"]:
 		
 		category_path = os.path.join(image_dir, category)
 		main_path = os.path.join(category_path, "main")
 		segmentation_path = os.path.join(category_path, "segmentation")
-		main_filenames = os.listdir(main_path)
-		segmentation_filenames = os.listdir(segmentation_path)
+
+		main_filenames = [fn for fn in os.listdir(main_path) if any(fn.endswith(ext) for ext in included_extensions)]
+		segmentation_filenames = [fn for fn in os.listdir(segmentation_path) if any(fn.endswith(ext) for ext in included_extensions)]
 		
 		assert len(main_filenames) == len(segmentation_filenames), "The number of images in the " + main_path + " is not equal to that in the " + segmentation_path
 		
 		for main_filename in main_filenames:
-			
+
 			if category == "train":
 				
 				training_images.append(main_filename)
