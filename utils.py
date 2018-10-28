@@ -76,8 +76,10 @@ def get_batch_of_trainval(result, category="train", batch_size=32):
 		main_path = os.path.join(category_path, "main/" + filename)
 		segmentation_path = os.path.join(category_path, "segmentation/" + filename)
 		
-		img = Image.open(main_path).resize((512, 512), Image.NEAREST)
+		img = Image.open(main_path)
+		img = img.resize((512, 512), Image.NEAREST)
 		img = np.array(img, np.float32)
+		img = img[:,:,:3]
 		
 		assert img.ndim == 3 and img.shape[2] == 3
 		
