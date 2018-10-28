@@ -97,10 +97,11 @@ def get_batch_of_trainval(result, category="train", batch_size=32):
 			other_extension = ".jpg" if extension == ".png" else ".png"
 			segmentation_path = path_wo_extension + other_extension
 		
-		img = Image.open(main_path)
+		img = Image.open(main_path).convert('RGB')
 		img = img.resize((512, 512), Image.NEAREST)
 		img = np.array(img, np.float32)
 		img = img[:,:,:3]
+		
 		
 		assert img.ndim == 3 and img.shape[2] == 3
 		
@@ -146,7 +147,7 @@ def get_batch_of_test(result, start_id, batch_size=32):
 		main_path = os.path.join(category_path, "main/" + filenames[idx])
 		# segmentation_path = os.path.join(category_path, "segmentation/" + filenames[idx])
 		
-		img = Image.open(main_path)
+		img = Image.open(main_path).convert('RGB')
 		# label = Image.open(segmentation_path).convert("L")
 		img_size = img.size
 		# label_size = label.size
