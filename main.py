@@ -16,7 +16,8 @@ import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--input_dir', type=str, default='data', help='Training input path')
-parser.add_argument("--batch_size", type=int, default=5, help="number of images in batch")
+parser.add_argument("--batch_size", type=int, default=3, help="number of images in batch")
+parser.add_argument("--save_freq", type=int, default=5000, help="save_freq")
 args = parser.parse_args()
 
 def train(result, model, logdir, train_sum_freq, val_sum_freq, save_freq, models, fd):
@@ -123,6 +124,7 @@ def main(_):
 	# get dataset info
 	cfg.images = args.input_dir
 	cfg.batch_size = args.batch_size
+	cfg.save_freq = args.save_freq
 	
 	result = create_image_lists(cfg.images)
 
