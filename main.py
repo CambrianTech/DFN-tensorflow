@@ -15,9 +15,13 @@ from dfn_model import DFN
 import argparse
 
 parser = argparse.ArgumentParser()
+
 parser.add_argument('--input_dir', type=str, default='data', help='Training input path')
+parser.add_argument('--checkpoint', type=str, default='models', help='Training input path')
 parser.add_argument("--batch_size", type=int, default=3, help="number of images in batch")
-parser.add_argument("--save_freq", type=int, default=5000, help="save_freq")
+parser.add_argument("--save_freq", type=int, default=2500, help="save_freq")
+parser.add_argument('--is_training', type=str2bool, default=True, help='Whether to train')
+
 args = parser.parse_args()
 
 def train(result, model, logdir, train_sum_freq, val_sum_freq, save_freq, models, fd):
@@ -123,16 +127,19 @@ def main(_):
 	
 	# get dataset info
 	cfg.images = args.input_dir
+	cfg.is_training = args.is_training
+	cfg.models = args.checkpoint
 	cfg.batch_size = args.batch_size
 	cfg.save_freq = args.save_freq
 	
 	result = create_image_lists(cfg.images)
 
-	if len(result["train"]) < cfg.batch_size:
-		raise ValueError("%d training images found at path '%s'" % (len(result["train"]), cfg.images))
+	if cfg.is_training:
+		if len(result["train"]) < cfg.batch_size:
+			raise ValueError("%d training images found at path '%s'" % (len(result["train"]), cfg.images))
 
-	if len(result["val"]) < cfg.batch_size:
-		raise ValueError("%d validation images found at path '%s'" % (len(result["val"]), cfg.images))
+		if len(result["val"]) < cfg.batch_size:
+			raise ValueError("%d validation images found at path '%s'" % (len(result["val"]), cfg.images))
 
 	max_iters = len(result["train"]) * cfg.epoch // cfg.batch_size
 	

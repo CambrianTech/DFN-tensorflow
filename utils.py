@@ -9,6 +9,14 @@ import random
 import numpy as np
 from PIL import Image
 
+def str2bool(v):
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean value expected.')
+
 # Take in image directory and return a directory containing image directory
 # and images split into train, val, test
 def create_image_lists(image_dir, batch_size=32):
@@ -30,7 +38,8 @@ def create_image_lists(image_dir, batch_size=32):
 		main_filenames = [fn for fn in os.listdir(main_path) if any(fn.endswith(ext) for ext in included_extensions)]
 		segmentation_filenames = [fn for fn in os.listdir(segmentation_path) if any(fn.endswith(ext) for ext in included_extensions)]
 		
-		assert len(main_filenames) == len(segmentation_filenames), "The number of images in the " + main_path + " is not equal to that in the " + segmentation_path
+		if category != "test":
+			assert len(main_filenames) == len(segmentation_filenames), "The number of images in the " + main_path + " is not equal to that in the " + segmentation_path
 		
 		for main_filename in main_filenames:
 
@@ -128,6 +137,8 @@ def get_batch_of_test(result, start_id, batch_size=32):
 	main_list = []
 	# segmentation_list = []
 	size_list = []
+
+	category="test"
 	
 	for idx in range(start_id, next_start_id):
 		
@@ -141,9 +152,10 @@ def get_batch_of_test(result, start_id, batch_size=32):
 		# label_size = label.size
 		
 		# assert img_size[0:2] == label_size
-		
+
 		img = img.resize((512, 512), Image.NEAREST)
 		img = np.array(img, np.float32)
+		img = img[:,:,:3]
 		
 		assert img.ndim == 3 and img.shape[2] == 3
 		
