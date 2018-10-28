@@ -59,6 +59,10 @@ def create_image_lists(image_dir, batch_size=32):
 	
 	return result
 
+
+# for f in /home/joel/YUGE/datasets/unreal_rugs_dfn/train/segmentation/Screenshot_*; do mv -v "$f" $(echo "$f" | sed -e "s/S\.png/C\.png/g"); done
+# for f in /home/joel/YUGE/datasets/unreal_rugs_dfn/train/segmentation/ADE_train_*; do mv -v "$f" $(echo "$f" | sed -e "s/_seg\.png/\.png/g"); done
+
 def get_batch_of_trainval(result, category="train", batch_size=32):
 	
 	assert category != "test", "category is not allowed to be 'test' here"
@@ -74,7 +78,15 @@ def get_batch_of_trainval(result, category="train", batch_size=32):
 		
 		category_path = os.path.join(image_dir, category)
 		main_path = os.path.join(category_path, "main/" + filename)
+
 		segmentation_path = os.path.join(category_path, "segmentation/" + filename)
+
+		# Get other extension. Do not require labels to have same extension as src
+		if not os.path.isfile(segmentation_path):
+			path_wo_extension = os.path.splitext(segmentation_path)[0]
+			extension = os.path.splitext(segmentation_path)[1][1:]
+			other_extension = ".jpg" if extension == ".png" else ".png"
+			segmentation_path = path_wo_extension + other_extension
 		
 		img = Image.open(main_path)
 		img = img.resize((512, 512), Image.NEAREST)
