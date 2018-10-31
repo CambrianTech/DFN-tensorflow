@@ -16,13 +16,19 @@ import argparse
 from scipy import misc
 from skimage import color
 
+from tensorflow.python.framework import graph_util,dtypes
+from tensorflow.python.tools import optimize_for_inference_lib, selective_registration_header_lib
+
+
 parser = argparse.ArgumentParser()
 
 parser.add_argument('--input_dir', type=str, default='data', help='Training input path')
 parser.add_argument('--checkpoint', type=str, default='models', help='Training input path')
 parser.add_argument("--batch_size", type=int, default=3, help="number of images in batch")
 parser.add_argument("--save_freq", type=int, default=2500, help="save_freq")
-parser.add_argument('--is_training', type=str2bool, default=True, help='Whether to train')
+parser.add_argument('--mode', type=str, default="train", help='train, test, export')
+parser.add_argument("--crop_size", type=int, default=512, help="crop size of input and output")
+parser.add_argument("--channels", type=int, default=3, help="number of input channels")
 
 args = parser.parse_args()
 
@@ -134,11 +140,31 @@ def test(result, model, models, test_outputs):
 		print("Total time: %d" % (time.time() - start))
 		print("All results have been saved.")
 
+def export(args, model):
+	
+	idx = 0
+	config = tf.ConfigProto()
+	config.gpu_options.allow_growth = True
+	
+	with tf.Session(config=config, graph=model.graph) as sess:
+
+		model.saver.restore(sess, tf.train.latest_checkpoint(args.checkpoint))
+		tf.logging.info("Model restored!")
+
+		shape = [args.crop_size, args.crop_size, args.channels]
+		input_image = tf.placeholder(dtype=tf.float32, shape=shape, name='input')
+		batch_input = tf.expand_dims(input_image, axis=0)
+
+		prediction = sess.run(model.prediction, feed_dict={model.X: batch_input})
+
+
+
+
 def main(_):
 	
 	# get dataset info
 	cfg.images = args.input_dir
-	cfg.is_training = args.is_training
+	cfg.is_training = args.mode == "train"
 	cfg.models = args.checkpoint
 	cfg.batch_size = args.batch_size
 	cfg.save_freq = args.save_freq
@@ -180,8 +206,7 @@ def main(_):
 		fd.write('Training done.')
 		fd.close()
 	
-	else:
-		
+	elif args.mode == "test":
 		if not tf.gfile.Exists(cfg.test_outputs):
 			
 			tf.gfile.MakeDirs(cfg.test_outputs)
@@ -189,6 +214,9 @@ def main(_):
 		tf.logging.info('Start testing...')
 		test(result, model, cfg.models, cfg.test_outputs)
 		tf.logging.info('Testing done.')
+	elif args.mode == "export":
+		export(args, model)
+
 
 if __name__ == "__main__":
 	
