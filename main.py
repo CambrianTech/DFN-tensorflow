@@ -13,6 +13,8 @@ from config import cfg
 from utils import *
 from dfn_model import DFN
 import argparse
+from scipy import misc
+from skimage import color
 
 parser = argparse.ArgumentParser()
 
@@ -112,13 +114,22 @@ def test(result, model, models, test_outputs):
 			
 			mean_iou = 0
 			teX, size_list, idx, filenames = get_batch_of_test(result, idx, model.batch_size)
+
 			prediction = sess.run(model.prediction, feed_dict={model.X: teX})
 			
 			for j in range(len(filenames)):
-				
 				output = Image.fromarray(prediction[j] * 255.0).convert("L").resize(size_list[j], Image.NEAREST)
-				output.save(test_outputs + "/" + filenames[j])
-				print(test_outputs + "/" + filenames[j] + " has been saved.")
+				img = teX[j]
+				mask = np.asarray(output)
+				img = misc.imresize(img, (mask.shape[0], mask.shape[1]))
+
+				img = overlayMask(mask, img, 60)
+
+				path = test_outputs + "/" + filenames[j]
+				misc.imsave(path, img)
+
+				# output.save(test_outputs + "/" + filenames[j])
+				print(path + " has been saved.")
 		
 		print("Total time: %d" % (time.time() - start))
 		print("All results have been saved.")
