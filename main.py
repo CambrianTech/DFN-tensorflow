@@ -15,6 +15,7 @@ from dfn_model import DFN
 import argparse
 from scipy import misc
 from skimage import color
+import shutil
 
 from tensorflow.python.framework import graph_util,dtypes
 from tensorflow.python.tools import optimize_for_inference_lib, selective_registration_header_lib
@@ -23,6 +24,7 @@ from tensorflow.python.tools import optimize_for_inference_lib, selective_regist
 parser = argparse.ArgumentParser()
 
 parser.add_argument('--input_dir', type=str, default='data', help='Training input path')
+parser.add_argument('--output_dir', type=str, default='output', help='Output path')
 parser.add_argument('--checkpoint', type=str, default='models', help='Training input path')
 parser.add_argument("--batch_size", type=int, default=3, help="number of images in batch")
 parser.add_argument("--save_freq", type=int, default=2500, help="save_freq")
@@ -148,17 +150,27 @@ def export(args, model):
 	
 	with tf.Session(config=config, graph=model.graph) as sess:
 
+		print("##############################################################")
+		print("\nLoading model from checkpoint")
 		model.saver.restore(sess, tf.train.latest_checkpoint(args.checkpoint))
-		tf.logging.info("Model restored!")
+		print("Model restored")
 
 		shape = [args.crop_size, args.crop_size, args.channels]
 		input_image = tf.placeholder(dtype=tf.float32, shape=shape, name='input')
 		batch_input = tf.expand_dims(input_image, axis=0)
 
-		prediction = sess.run(model.prediction, feed_dict={model.X: batch_input})
+		input_name = "input"
+		output_name = "output"
+		shutil.rmtree(args.output_dir)
 
+		print("##############################################################\n")
+		print("Input Name:", input_name)
+		print("Output Name:", output_name)
+		print("##############################################################\n")
+		tf.saved_model.simple_save(sess, args.output_dir, {input_name: model.X}, {output_name: model.prediction})
 
-
+		print("Finished: %d ops in the final graph." % len(tf.get_default_graph().as_graph_def().node))
+		print("##############################################################\n") 
 
 def main(_):
 	
@@ -168,6 +180,9 @@ def main(_):
 	cfg.models = args.checkpoint
 	cfg.batch_size = args.batch_size
 	cfg.save_freq = args.save_freq
+
+	if args.mode == "export":
+		args.batch_size = None
 	
 	result = create_image_lists(cfg.images)
 
