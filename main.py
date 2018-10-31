@@ -155,10 +155,6 @@ def export(args, model):
 		model.saver.restore(sess, tf.train.latest_checkpoint(args.checkpoint))
 		print("Model restored")
 
-		shape = [args.crop_size, args.crop_size, args.channels]
-		input_image = tf.placeholder(dtype=tf.float32, shape=shape, name='input')
-		batch_input = tf.expand_dims(input_image, axis=0)
-
 		input_name = "input"
 		output_name = "output"
 		shutil.rmtree(args.output_dir)
