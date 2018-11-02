@@ -6,6 +6,7 @@ from __future__ import print_function
 
 import os
 import random
+import argparse
 import numpy as np
 from PIL import Image
 import imghdr
