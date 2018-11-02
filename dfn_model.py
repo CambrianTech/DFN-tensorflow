@@ -45,7 +45,7 @@ class DFN(object):
 		self.graph = tf.Graph()
 		with self.graph.as_default():
 			
-			self.X = tf.placeholder(tf.float32, shape=(self.batch_size, 512, 512, 3))
+			self.X = tf.placeholder(tf.float32, shape=(self.batch_size, 512, 512, 6))
 			self.Y = tf.placeholder(tf.float32, shape=(self.batch_size, 512, 512, NUM_CLASSES))
 
 			self.build_arch()
