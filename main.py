@@ -128,6 +128,7 @@ def main():
 		model_dir=args.models,
 		tf_random_seed=0,
 		train_distribute=tf.contrib.distribute.MirroredStrategy(num_gpus=args.num_gpus) if args.num_gpus > 1 else None,
+		eval_distribute=tf.contrib.distribute.MirroredStrategy(num_gpus=args.num_gpus) if args.num_gpus > 1 else None,
 	)
 
 	estimator = tf.estimator.Estimator(model_fn=model_fn, config=run_config, params=args)
