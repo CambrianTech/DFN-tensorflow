@@ -75,10 +75,11 @@ def get_input_fn(input_dir, normals_dir, output_dir, shuffle, batch_size, epochs
 	def parse_image(input_file_name, normals_file_name, output_file_name):
 		def _parse(file_name):
 			image_data = tf.read_file(file_name)
-			image = tf.image.decode_image(image_data, dtype=tf.float32, channels=3)
-			image.set_shape([None, None, 3])
+
+			# Despite its name decode_png can actually decode all image types.
+			image = tf.image.convert_image_dtype(tf.image.decode_png(image_data, channels=3), tf.float32)
+
 			image = tf.image.resize_images(image, [crop_size, crop_size])
-			image.set_shape([crop_size, crop_size, 3])
 			return image
 
 		image = _parse(input_file_name)
