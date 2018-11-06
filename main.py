@@ -4,231 +4,162 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import math
-import time
+import os
 import numpy as np
 import tensorflow as tf
-from PIL import Image
-from config import cfg
-from utils import *
 from dfn_model import DFN
+from glob import glob
 import argparse
-from scipy import misc
-from skimage import color
-import shutil
-
-from tensorflow.python.framework import graph_util,dtypes
-from tensorflow.python.tools import optimize_for_inference_lib, selective_registration_header_lib
-
 
 parser = argparse.ArgumentParser()
 
 parser.add_argument('--input_dir', type=str, default='data', help='Training input path')
 parser.add_argument('--output_dir', type=str, default='output', help='Output path')
-parser.add_argument('--checkpoint', type=str, default='models', help='Training input path')
 parser.add_argument("--batch_size", type=int, default=3, help="number of images in batch")
-parser.add_argument("--save_freq", type=int, default=2500, help="save_freq")
 parser.add_argument('--mode', type=str, default="train", help='train, test, export')
 parser.add_argument("--crop_size", type=int, default=512, help="crop size of input and output")
-parser.add_argument("--channels", type=int, default=3, help="number of input channels")
+parser.add_argument("--classes", type=int, default=2, help="number of output channels / classes excluding none (black)")
+parser.add_argument('--models', type=str, default='models', help='path for saving models')
+parser.add_argument("--num_gpus", type=int, default=1, help="number of gpus to use")
+parser.add_argument('--alpha', type=float, default=0.25, help='coefficient for focal loss')
+parser.add_argument('--gamma', type=float, default=2.0, help='factor for focal loss')
+parser.add_argument('--fl_weight', type=float, default=0.1, help='regularization coefficient for focal loss')
+parser.add_argument('--epochs', type=int, default=50, help='epochs')
+parser.add_argument('--init_lr', type=float, default=0.004, help='initial learning rate')
+parser.add_argument('--power', type=float, default=0.9, help='decay factor of learning rate')
+parser.add_argument('--momentum', type=float, default=0.9, help='momentum factor')
+parser.add_argument('--stddev', type=float, default=0.02, help='stddev for W initializer')
+parser.add_argument('--regularization_scale', type=float, default=0.0001, help='regularization coefficient for W and b')
 
-args = parser.parse_args()
+def model_fn(features, labels, mode, params, config):
+	is_predict = mode == tf.estimator.ModeKeys.PREDICT
+	is_train = mode == tf.estimator.ModeKeys.TRAIN
 
-def train(result, model, logdir, train_sum_freq, val_sum_freq, save_freq, models, fd):
+	input_image = features["image"]
+	input_normals = features["normals"]
+	inputs = tf.concat((input_image, input_normals), axis=-1)
+
+	model = DFN(X=inputs, Y=labels, n_classes=params.classes+1,
+				max_iter=params.max_iters, init_lr=params.init_lr, power=params.power,
+				momentum=params.momentum, stddev=params.stddev, regularization_scale=params.regularization_scale,
+				alpha=params.alpha, gamma=params.gamma, fl_weight=params.fl_weight)
+
+	predictions = {
+		"output": model.fuse,
+	}
+
+	eval_metric_ops = {}
 	
-	num_val_batch = len(result["val"]) // model.batch_size
-	step = 0
-	config = tf.ConfigProto()
-	config.gpu_options.allow_growth = True
+	export_outputs = {
+		"output": tf.estimator.export.PredictOutput(model.fuse),
+	}
+
+	logging_hook = [tf.train.LoggingTensorHook({
+		"loss" : model.total_loss,
+		"mean_iou": model.mean_iou
+	}, every_n_iter=100)] if is_train else None
+
+	return tf.estimator.EstimatorSpec(
+		mode=mode,
+		predictions=predictions,
+		loss=model.total_loss if not is_predict else None,
+		train_op=model.train_op if is_train else None,
+		eval_metric_ops=eval_metric_ops,
+		export_outputs=export_outputs,
+		training_chief_hooks=None,
+		training_hooks=logging_hook,
+		scaffold=None
+	)
+
+def get_input_fn(input_dir, normals_dir, output_dir, shuffle, batch_size, epochs, crop_size, classes):
+	def parse_image(input_file_name, normals_file_name, output_file_name):
+		def _parse(file_name):
+			image_data = tf.read_file(file_name)
+
+			# Despite its name decode_png can actually decode all image types.
+			image = tf.image.convert_image_dtype(tf.image.decode_png(image_data, channels=3), tf.float32)
+
+			image = tf.image.resize_images(image, [crop_size, crop_size])
+			return image
+
+		image = _parse(input_file_name)
+		normals = _parse(normals_file_name)
+		output = _parse(output_file_name)
+
+		# Make none (black) a class
+		is_none = 1 - tf.reduce_sum(output, axis=-1, keepdims=True)
+		output = tf.concat((output[:, :, :classes], is_none), axis=-1)
+
+		return {"image": image, "normals": normals}, output
+
+	def input_fn():
+		input_files = tf.data.Dataset.list_files(input_dir, seed=0)
+		normals_files = tf.data.Dataset.list_files(normals_dir, seed=0)
+		output_files = tf.data.Dataset.list_files(output_dir, seed=0)
+
+		dataset = tf.data.Dataset.zip((input_files, normals_files, output_files))
+		if shuffle:
+			dataset = dataset.shuffle(buffer_size=10000)
+		dataset = dataset.map(parse_image)
+		dataset = dataset.repeat(epochs)
+		dataset = dataset.batch(batch_size)
+		dataset = dataset.prefetch(2)
+		return dataset
+	return input_fn
+
+def get_serving_input_receiver_fn(crop_size):
+	def serving_input_receiver_fn():
+		inputs = {
+			"image": tf.placeholder(tf.float32, [None, crop_size, crop_size, 3]),
+			"normals": tf.placeholder(tf.float32, [None, crop_size, crop_size, 3]),
+		}
+		return tf.estimator.export.ServingInputReceiver(inputs, inputs)
+	return serving_input_receiver_fn
+
+def main():
+	args = parser.parse_args()
+
+	# Hackish: calculate the max iters by looking at the input dir
+	args.max_iters = args.epochs * len(glob(os.path.join(args.input_dir, "train", "main", "*")))
 	
-	with tf.Session(config=config, graph=model.graph) as sess:
-		
-		sess.run(tf.global_variables_initializer())
-		train_writer = tf.summary.FileWriter(logdir + "/train", sess.graph)
-		val_writer = tf.summary.FileWriter(logdir + "/val", sess.graph)
-		
-		start = time.time()
-		for global_step in range(model.max_iter):
-			
-			print("Training for iter %d/%d: " % (global_step, model.max_iter))
-			fd.write("Training for iter %d/%d: \n" % (global_step, model.max_iter))
-			trX, trY = get_batch_of_trainval(result, "train", model.batch_size)
-			_, total_loss, softmax_loss, focal_loss, mean_iou = sess.run([model.train_op, model.total_loss, model.total_ce, model.fl, model.mean_iou], feed_dict={model.X: trX, model.Y: trY})
-			
-			assert not np.isnan(total_loss), "Something wrong! loss is nan..."
-			
-			print("total loss: {}, softmax loss: {}, focal loss: {}, mean iou: {}".format(total_loss, softmax_loss, focal_loss, mean_iou))
-			fd.write("total loss: {}, softmax loss: {}, focal loss: {}, mean iou: {}\n".format(total_loss, softmax_loss, focal_loss, mean_iou))
-			
-			if global_step % train_sum_freq == 0:
-				
-				summary_str = sess.run(model.trainval_summary, feed_dict={model.X: trX, model.Y: trY})
-				train_writer.add_summary(summary_str, global_step)
-			
-			if val_sum_freq != 0 and global_step % val_sum_freq == 0:
-				
-				print("\nValidation phase: ")
-				fd.write("\nValidation phase: \n")
-				
-				val_loss = 0
-				val_ce = 0
-				val_fl = 0
-				val_iou = 0
-				
-				for i in range(num_val_batch):
-					
-					valX, valY = get_batch_of_trainval(result, "val", model.batch_size)
-					total_loss, softmax_loss, focal_loss, mean_iou, summary_str = sess.run([model.total_loss, model.total_ce, model.fl, model.mean_iou, model.trainval_summary], feed_dict={model.X: valX, model.Y: valY})
-					val_writer.add_summary(summary_str, step)
-					step += 1
-					val_loss += total_loss
-					val_ce += softmax_loss
-					val_fl += focal_loss
-					val_iou += mean_iou
-				
-				val_loss /= (model.batch_size * num_val_batch)
-				val_ce /= (model.batch_size * num_val_batch)
-				val_fl /= (model.batch_size * num_val_batch)
-				val_iou /= (model.batch_size * num_val_batch)
-				
-				print("total loss: {}, softmax loss: {}, focal loss: {}, mean iou: {}\n".format(val_loss, val_ce, val_fl, val_iou))
-				fd.write("total loss: {}, softmax loss: {}, focal loss: {}, mean iou: {}\n\n".format(val_loss, val_ce, val_fl, val_iou))
-			
-			if save_freq != 0 and (global_step + 1) % save_freq == 0:
-				
-				print("Saving model for iter %d..." % global_step)
-				fd.write("Saving model for iter %d...\n" % global_step)
-				model.saver.save(sess, models + "/model_iter_%04d" % global_step, global_step=global_step)
-		
-		print("Total time: %d" % (time.time() - start))
-		fd.write("Total time: %d" % (time.time() - start))
+	tf.logging.set_verbosity(tf.logging.INFO)
 
-def test(result, model, models, test_outputs):
+	run_config = tf.estimator.RunConfig(
+		model_dir=args.models,
+		tf_random_seed=0,
+		train_distribute=tf.contrib.distribute.MirroredStrategy(num_gpus=args.num_gpus) if args.num_gpus > 1 else None,
+		eval_distribute=tf.contrib.distribute.MirroredStrategy(num_gpus=args.num_gpus) if args.num_gpus > 1 else None,
+	)
+
+	estimator = tf.estimator.Estimator(model_fn=model_fn, config=run_config, params=args)
 	
-	num_te_batch = int(math.ceil(float(len(result["test"]) / model.batch_size)))
-	idx = 0
-	config = tf.ConfigProto()
-	config.gpu_options.allow_growth = True
-	
-	with tf.Session(config=config, graph=model.graph) as sess:
-		
-		model.saver.restore(sess, tf.train.latest_checkpoint(models))
-		tf.logging.info("Model restored!")
-		print("Test phase: ")
-		
-		test_iou = 0
-		start = time.time()
-		for i in range(num_te_batch):
-			
-			mean_iou = 0
-			teX, size_list, idx, filenames = get_batch_of_test(result, idx, model.batch_size)
+	if args.mode == "train":
+		train_input_fn = get_input_fn(os.path.join(args.input_dir, "train", "main", "*"),
+										os.path.join(args.input_dir, "train", "normals", "*"),
+										os.path.join(args.input_dir, "train", "segmentation", "*"),
+										shuffle=True, batch_size=args.batch_size, epochs=args.epochs,
+										crop_size=args.crop_size, classes=args.classes)
+		train_spec = tf.estimator.TrainSpec(train_input_fn)
 
-			prediction = sess.run(model.prediction, feed_dict={model.X: teX})
-			
-			for j in range(len(filenames)):
-				output = Image.fromarray(prediction[j] * 255.0).convert("L").resize(size_list[j], Image.NEAREST)
-				img = teX[j]
-				mask = np.asarray(output)
-				img = misc.imresize(img, (mask.shape[0], mask.shape[1]))
+		eval_input_fn = get_input_fn(os.path.join(args.input_dir, "test", "main", "*"),
+										os.path.join(args.input_dir, "test", "normals", "*"),
+										os.path.join(args.input_dir, "test", "segmentation", "*"),
+										shuffle=False, batch_size=args.batch_size, epochs=args.epochs,
+										crop_size=args.crop_size, classes=args.classes)
+		eval_spec = tf.estimator.EvalSpec(eval_input_fn)
 
-				img = overlayMask(mask, img, 60)
-
-				path = test_outputs + "/" + filenames[j]
-				misc.imsave(path, img)
-
-				# output.save(test_outputs + "/" + filenames[j])
-				print(path + " has been saved.")
-		
-		print("Total time: %d" % (time.time() - start))
-		print("All results have been saved.")
-
-def export(args, model):
-	
-	idx = 0
-	config = tf.ConfigProto()
-	config.gpu_options.allow_growth = True
-	
-	with tf.Session(config=config, graph=model.graph) as sess:
-
-		print("##############################################################")
-		print("\nLoading model from checkpoint")
-		model.saver.restore(sess, tf.train.latest_checkpoint(args.checkpoint))
-		print("Model restored")
-
-		input_name = "input"
-		output_name = "output"
-		shutil.rmtree(args.output_dir)
-
-		print("##############################################################\n")
-		print("Input Name:", input_name)
-		print("Output Name:", output_name)
-		print("##############################################################\n")
-		tf.saved_model.simple_save(sess, args.output_dir, {input_name: model.X}, {output_name: model.prediction})
-
-		print("Finished: %d ops in the final graph." % len(tf.get_default_graph().as_graph_def().node))
-		print("##############################################################\n") 
-
-def main(_):
-	
-	# get dataset info
-	cfg.images = args.input_dir
-	cfg.is_training = args.mode == "train"
-	cfg.models = args.checkpoint
-	cfg.batch_size = args.batch_size
-	cfg.save_freq = args.save_freq
-
-	if args.mode == "export":
-		args.batch_size = None
-	
-	result = create_image_lists(cfg.images)
-
-	if cfg.is_training:
-		if len(result["train"]) < cfg.batch_size:
-			raise ValueError("%d training images found at path '%s'" % (len(result["train"]), cfg.images))
-
-		if len(result["val"]) < cfg.batch_size:
-			raise ValueError("%d validation images found at path '%s'" % (len(result["val"]), cfg.images))
-
-	max_iters = len(result["train"]) * cfg.epoch // cfg.batch_size
-	
-	tf.logging.info('Loading Graph...')
-	model = DFN(max_iters, batch_size=cfg.batch_size, init_lr=cfg.init_lr, power=cfg.power, momentum=cfg.momentum, stddev=cfg.stddev, regularization_scale=cfg.regularization_scale, alpha=cfg.alpha, gamma=cfg.gamma, fl_weight=cfg.fl_weight)
-	tf.logging.info('Graph loaded.')
-	
-	if cfg.is_training:
-		
-		if not tf.gfile.Exists(cfg.logdir):
-			
-			tf.gfile.MakeDirs(cfg.logdir)
-		
-		if not tf.gfile.Exists(cfg.models):
-			
-			tf.gfile.MakeDirs(cfg.models)
-		
-		if os.path.exists(cfg.log):
-			
-			os.remove(cfg.log)
-		
-		fd = open(cfg.log, "a")
-		tf.logging.info('Start training...')
-		fd.write('Start training...\n')
-		train(result, model, cfg.logdir, cfg.train_sum_freq, cfg.val_sum_freq, cfg.save_freq, cfg.models, fd)
-		tf.logging.info('Training done.')
-		fd.write('Training done.')
-		fd.close()
-	
+		tf.estimator.train_and_evaluate(estimator, train_spec, eval_spec)
 	elif args.mode == "test":
-		if not tf.gfile.Exists(cfg.test_outputs):
-			
-			tf.gfile.MakeDirs(cfg.test_outputs)
-		
-		tf.logging.info('Start testing...')
-		test(result, model, cfg.models, cfg.test_outputs)
-		tf.logging.info('Testing done.')
+		eval_input_fn = get_input_fn(os.path.join(args.input_dir, "test", "main", "*"),
+										os.path.join(args.input_dir, "test", "normals", "*"),
+										os.path.join(args.input_dir, "test", "segmentation", "*"),
+										shuffle=False, batch_size=args.batch_size, epochs=args.epochs,
+										crop_size=args.crop_size, classes=args.classes)
+		estimator.evaluate(eval_input_fn)
 	elif args.mode == "export":
-		export(args, model)
-
+		estimator.export_saved_model(args.output_dir, get_serving_input_receiver_fn(args.crop_size))
+	else:
+		print("Unknown mode", args.mode)
 
 if __name__ == "__main__":
-	
-	tf.app.run()
+	main()
