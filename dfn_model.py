@@ -53,15 +53,15 @@ class DFN(object):
 	def build_arch(self):
 		######### -*- ResNet-101 -*- #########
 		with tf.variable_scope("resnet_101"):
-			self.ib_2, self.ib_3, self.ib_4, self.ib_5, self.global_avg_pool = nn_base(self.X, self.n_classes, k=0, initializer=tf.random_normal_initializer(0, self.stddev), regularizer=tf.contrib.layers.l2_regularizer(self.regularization_scale))
+			self.ib_2, self.ib_3, self.ib_4, self.ib_5, self.global_avg_pool = nn_base(self.X, self.n_classes, k=0, initializer=tf.random_normal_initializer(0, self.stddev), regularizer=None)
 		
 		######### -*- Smooth Network -*- #########
 		with tf.variable_scope("smooth"):
-			self.b1, self.b2, self.b3, self.b4, self.fuse = nn_smooth(self.ib_2, self.ib_3, self.ib_4, self.ib_5, self.global_avg_pool, self.n_classes,k=0, initializer=tf.random_normal_initializer(0, self.stddev), regularizer=tf.contrib.layers.l2_regularizer(self.regularization_scale))
+			self.b1, self.b2, self.b3, self.b4, self.fuse = nn_smooth(self.ib_2, self.ib_3, self.ib_4, self.ib_5, self.global_avg_pool, self.n_classes,k=0, initializer=tf.random_normal_initializer(0, self.stddev), regularizer=None)
 		
 		######### -*- Border Network -*- #########
 		with tf.variable_scope("border"):
-			self.o = nn_border(self.ib_2, self.ib_3, self.ib_4, self.ib_5, self.n_classes, k=0, initializer=tf.random_normal_initializer(0, self.stddev), regularizer=tf.contrib.layers.l2_regularizer(self.regularization_scale))
+			self.o = nn_border(self.ib_2, self.ib_3, self.ib_4, self.ib_5, self.n_classes, k=0, initializer=tf.random_normal_initializer(0, self.stddev), regularizer=None)
 	
 	def loss(self):
 		######### -*- Softmax Loss -*- #########
