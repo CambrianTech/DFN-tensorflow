@@ -99,7 +99,7 @@ def get_input_fn(input_dir, normals_dir, output_dir, shuffle, batch_size, epochs
 
 		dataset = tf.data.Dataset.zip((input_files, normals_files, output_files))
 		if shuffle:
-			dataset = dataset.shuffle(buffer_size=10000)
+			dataset = dataset.shuffle(buffer_size=100000)
 		dataset = dataset.map(parse_image)
 		dataset = dataset.repeat(epochs)
 		dataset = dataset.batch(batch_size)
