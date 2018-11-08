@@ -93,9 +93,10 @@ def get_input_fn(input_dir, normals_dir, output_dir, shuffle, batch_size, epochs
 		return {"image": image, "normals": normals}, output
 
 	def input_fn():
-		input_files = tf.data.Dataset.list_files(input_dir, seed=0)
-		normals_files = tf.data.Dataset.list_files(normals_dir, seed=0)
-		output_files = tf.data.Dataset.list_files(output_dir, seed=0)
+		file_seed = np.random.randint(10000000)
+		input_files = tf.data.Dataset.list_files(input_dir, seed=file_seed)
+		normals_files = tf.data.Dataset.list_files(normals_dir, seed=file_seed)
+		output_files = tf.data.Dataset.list_files(output_dir, seed=file_seed)
 
 		dataset = tf.data.Dataset.zip((input_files, normals_files, output_files))
 		if shuffle:
@@ -126,7 +127,6 @@ def main():
 
 	run_config = tf.estimator.RunConfig(
 		model_dir=args.models,
-		tf_random_seed=0,
 		train_distribute=tf.contrib.distribute.MirroredStrategy(num_gpus=args.num_gpus) if args.num_gpus > 1 else None,
 		eval_distribute=tf.contrib.distribute.MirroredStrategy(num_gpus=args.num_gpus) if args.num_gpus > 1 else None,
 	)
