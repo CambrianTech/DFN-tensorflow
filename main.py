@@ -60,6 +60,14 @@ def model_fn(features, labels, mode, params, config):
 		"mean_iou": model.mean_iou
 	}, every_n_iter=100)] if is_train else None
 
+	evaluation_hooks = []
+	if is_train:
+		eval_summary_hook = tf.train.SummarySaverHook(
+			save_steps=100,
+			output_dir=os.path.join(params.models, "eval_core"),
+			summary_op=model.trainval_summary)
+		evaluation_hooks.append(eval_summary_hook)
+
 	return tf.estimator.EstimatorSpec(
 		mode=mode,
 		predictions=predictions,
@@ -69,7 +77,8 @@ def model_fn(features, labels, mode, params, config):
 		export_outputs=export_outputs,
 		training_chief_hooks=None,
 		training_hooks=logging_hook,
-		scaffold=None
+		scaffold=None,
+		evaluation_hooks=evaluation_hooks
 	)
 
 def get_input_fn(input_dir, normals_dir, output_dir, shuffle, batch_size, epochs, crop_size, classes, augment):
