@@ -63,7 +63,7 @@ def model_fn(features, labels, mode, params, config):
 	evaluation_hooks = []
 	if is_train:
 		eval_summary_hook = tf.train.SummarySaverHook(
-			save_steps=100,
+			save_steps=90,
 			output_dir=os.path.join(params.models, "eval_core"),
 			summary_op=model.trainval_summary)
 		evaluation_hooks.append(eval_summary_hook)
