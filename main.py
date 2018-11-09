@@ -30,6 +30,7 @@ parser.add_argument('--power', type=float, default=0.9, help='decay factor of le
 parser.add_argument('--momentum', type=float, default=0.9, help='momentum factor')
 parser.add_argument('--stddev', type=float, default=0.02, help='stddev for W initializer')
 parser.add_argument('--regularization_scale', type=float, default=0.0001, help='regularization coefficient for W and b')
+parser.add_argument('--augment', action="store_true", help="augment images")
 
 def model_fn(features, labels, mode, params, config):
 	is_predict = mode == tf.estimator.ModeKeys.PREDICT
@@ -71,20 +72,47 @@ def model_fn(features, labels, mode, params, config):
 		scaffold=None
 	)
 
-def get_input_fn(input_dir, normals_dir, output_dir, shuffle, batch_size, epochs, crop_size, classes):
+def get_input_fn(input_dir, normals_dir, output_dir, shuffle, batch_size, epochs, crop_size, classes, augment):
 	def parse_image(input_file_name, normals_file_name, output_file_name):
-		def _parse(file_name):
+		def _parse(file_name, crop_fraction=None):
 			image_data = tf.read_file(file_name)
 
 			# Despite its name decode_png can actually decode all image types.
 			image = tf.image.convert_image_dtype(tf.image.decode_png(image_data, channels=3), tf.float32)
 
+			if crop_fraction is not None:
+				# Resize first since decode does not seem to give a shape
+				image = tf.image.resize_images(image, [2*crop_size, 2*crop_size])
+				a = int(crop_fraction[0]*2*crop_size)
+				b = -max(1, int(crop_fraction[1]*2*crop_size))
+				c = int(crop_fraction[2]*2*crop_size)
+				d = -max(1, int(crop_fraction[3]*2*crop_size))
+				image = image[a:b, c:d]
+				
 			image = tf.image.resize_images(image, [crop_size, crop_size])
 			return image
 
-		image = _parse(input_file_name)
-		normals = _parse(normals_file_name)
-		output = _parse(output_file_name)
+		# Randomly crop out up to 10% of the sides if augmenting
+		crop_fraction = np.random.rand(4) * 0.1 if augment else None
+
+		image = _parse(input_file_name, crop_fraction)
+		normals = _parse(normals_file_name, crop_fraction)
+		output = _parse(output_file_name, crop_fraction)
+
+		# Random augmentation if wanted
+		if augment:
+			ops = [
+				lambda im: tf.image.random_brightness(im, 0.2),
+				lambda im: tf.image.random_contrast(im, 0.8, 1.2),
+				lambda im: tf.image.random_hue(im, 0.2),
+				lambda im: tf.image.random_saturation(im, 0.8, 1.2),
+				lambda im: im + tf.random.normal(im.shape, stddev=0.02)
+			]
+
+			np.random.shuffle(ops)
+
+			for augment_op in ops:
+				image = tf.clip_by_value(augment_op(image), 0, 1)
 
 		# Make none (black) a class
 		is_none = 1 - tf.reduce_sum(output, axis=-1, keepdims=True)
@@ -138,14 +166,14 @@ def main():
 										os.path.join(args.input_dir, "train", "normals", "*"),
 										os.path.join(args.input_dir, "train", "segmentation", "*"),
 										shuffle=True, batch_size=args.batch_size, epochs=args.epochs,
-										crop_size=args.crop_size, classes=args.classes)
+										crop_size=args.crop_size, classes=args.classes, augment=args.augment)
 		train_spec = tf.estimator.TrainSpec(train_input_fn)
 
 		eval_input_fn = get_input_fn(os.path.join(args.input_dir, "test", "main", "*"),
 										os.path.join(args.input_dir, "test", "normals", "*"),
 										os.path.join(args.input_dir, "test", "segmentation", "*"),
 										shuffle=False, batch_size=args.batch_size, epochs=args.epochs,
-										crop_size=args.crop_size, classes=args.classes)
+										crop_size=args.crop_size, classes=args.classes, augment=False)
 		eval_spec = tf.estimator.EvalSpec(eval_input_fn)
 
 		tf.estimator.train_and_evaluate(estimator, train_spec, eval_spec)
@@ -154,7 +182,7 @@ def main():
 										os.path.join(args.input_dir, "test", "normals", "*"),
 										os.path.join(args.input_dir, "test", "segmentation", "*"),
 										shuffle=False, batch_size=args.batch_size, epochs=args.epochs,
-										crop_size=args.crop_size, classes=args.classes)
+										crop_size=args.crop_size, classes=args.classes, augment=False)
 		estimator.evaluate(eval_input_fn)
 	elif args.mode == "export":
 		estimator.export_saved_model(args.output_dir, get_serving_input_receiver_fn(args.crop_size))
