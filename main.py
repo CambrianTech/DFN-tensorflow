@@ -185,7 +185,7 @@ def main():
 
 		eval_input_fn = get_input_fn(os.path.join(args.input_dir, "test", "main", "*"),
 										os.path.join(args.input_dir, "test", "normals", "*"),
-										os.path.join(args.input_dir, "train", "elevation", "*"),
+										os.path.join(args.input_dir, "test", "elevation", "*"),
 										os.path.join(args.input_dir, "test", "segmentation", "*"),
 										shuffle=False, batch_size=args.batch_size, epochs=args.epochs,
 										crop_size=args.crop_size, classes=args.classes, augment=False)
@@ -195,7 +195,7 @@ def main():
 	elif args.mode == "test":
 		eval_input_fn = get_input_fn(os.path.join(args.input_dir, "test", "main", "*"),
 										os.path.join(args.input_dir, "test", "normals", "*"),
-										os.path.join(args.input_dir, "train", "elevation", "*"),
+										os.path.join(args.input_dir, "test", "elevation", "*"),
 										os.path.join(args.input_dir, "test", "segmentation", "*"),
 										shuffle=False, batch_size=args.batch_size, epochs=args.epochs,
 										crop_size=args.crop_size, classes=args.classes, augment=False)
