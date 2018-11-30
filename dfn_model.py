@@ -93,6 +93,6 @@ class DFN(object):
 		trainval_summary.append(tf.summary.image("input_image", tf.cast(255 * self.X[:, :, :, :3], tf.uint8), max_outputs=3))
 		trainval_summary.append(tf.summary.image("input_normals", tf.cast(255 * self.X[:, :, :, 3:6], tf.uint8), max_outputs=3))
 		trainval_summary.append(tf.summary.image("input_elevation", tf.cast(255 * self.X[:, :, :, 6:7], tf.uint8), max_outputs=3))
-		trainval_summary.append(tf.summary.image("output", tf.cast(255 * self.Y[:, :, :, :3], tf.uint8), max_outputs=3))
-		trainval_summary.append(tf.summary.image("prediction", tf.cast(255 * self.softmax_fuse[:, :, :, :3], tf.uint8), max_outputs=3))
+		trainval_summary.append(tf.summary.image("output", tf.cast(255 * self.Y[:, :, :, 0], tf.uint8), max_outputs=3))
+		trainval_summary.append(tf.summary.image("prediction", tf.cast(255 * self.softmax_fuse[:, :, :, 0], tf.uint8), max_outputs=3))
 		self.trainval_summary = tf.summary.merge(trainval_summary)
