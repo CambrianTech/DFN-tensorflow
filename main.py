@@ -173,12 +173,14 @@ def main():
 	if args.mode == "train":
 		train_input_fn = get_input_fn(os.path.join(args.input_dir, "train", "main", "*"),
 										os.path.join(args.input_dir, "train", "pix_semantic", "*"),
+										os.path.join(args.input_dir, "train", "segmentation", "*"),
 										shuffle=True, batch_size=args.batch_size, epochs=args.epochs,
 										crop_size=args.crop_size, classes=args.classes, augment=args.augment)
 		train_spec = tf.estimator.TrainSpec(train_input_fn)
 
 		eval_input_fn = get_input_fn(os.path.join(args.input_dir, "test", "main", "*"),
 										os.path.join(args.input_dir, "test", "pix_semantic", "*"),
+										os.path.join(args.input_dir, "train", "segmentation", "*"),
 										shuffle=False, batch_size=args.batch_size, epochs=args.epochs,
 										crop_size=args.crop_size, classes=args.classes, augment=False)
 		eval_spec = tf.estimator.EvalSpec(eval_input_fn)
@@ -187,6 +189,7 @@ def main():
 	elif args.mode == "test":
 		eval_input_fn = get_input_fn(os.path.join(args.input_dir, "test", "main", "*"),
 										os.path.join(args.input_dir, "test", "pix_semantic", "*"),
+										os.path.join(args.input_dir, "train", "segmentation", "*"),
 										shuffle=False, batch_size=args.batch_size, epochs=args.epochs,
 										crop_size=args.crop_size, classes=args.classes, augment=False)
 		estimator.evaluate(eval_input_fn)
