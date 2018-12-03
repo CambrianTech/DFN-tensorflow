@@ -10,6 +10,7 @@ import tensorflow as tf
 from dfn_model import DFN
 from glob import glob
 import argparse
+import cv2
 
 parser = argparse.ArgumentParser()
 
@@ -38,7 +39,8 @@ def model_fn(features, labels, mode, params, config):
 
 	input_image = features["image"]
 	input_mask = features["mask"]
-	inputs = tf.concat((input_image, input_mask), axis=-1)
+	input_edges = features["edges"]
+	inputs = tf.concat((input_image, input_mask, input_edges), axis=-1)
 
 	model = DFN(X=inputs, Y=labels, n_classes=params.classes+1,
 				max_iter=params.max_iters, init_lr=params.init_lr, power=params.power,
@@ -101,6 +103,11 @@ def get_input_fn(input_dir, mask_dir, output_dir, shuffle, batch_size, epochs, c
 			image = tf.image.resize_images(image, [crop_size, crop_size])
 			return image
 
+		def _get_edges(image):
+			edges = (cv2.Canny(image, 100, 200) / 255.).astype(np.float32)
+			edges = np.expand_dims(edges, -1)
+			return edges
+
 		# Randomly crop out up to 10% of the sides if augmenting
 		crop_fraction = np.random.rand(4) * 0.1 if augment else None
 
@@ -123,11 +130,16 @@ def get_input_fn(input_dir, mask_dir, output_dir, shuffle, batch_size, epochs, c
 			for augment_op in ops:
 				image = tf.clip_by_value(augment_op(image), 0, 1)
 
+		# Get edges after augmentation
+		edges = tf.py_func(_get_edges, [tf.image.rgb_to_grayscale(tf.image.convert_image_dtype(image, tf.uint8))], tf.float32, stateful=False)
+		edges.set_shape(mask.shape)
+		print("Edges shape:", edges.shape)
+
 		# Make none (black) a class
 		is_none = 1 - tf.reduce_sum(output, axis=-1, keepdims=True)
 		output = tf.concat((output[:, :, :classes], is_none), axis=-1)
 
-		return {"image": image, "mask": mask}, output
+		return {"image": image, "mask": mask, "edges": edges}, output
 
 	def input_fn():
 		file_seed = np.random.randint(10000000)
@@ -150,6 +162,7 @@ def get_serving_input_receiver_fn(crop_size):
 		inputs = {
 			"image": tf.placeholder(tf.float32, [None, crop_size, crop_size, 3]),
 			"mask": tf.placeholder(tf.float32, [None, crop_size, crop_size, 1]),
+			"edges": tf.placeholder(tf.float32, [None, crop_size, crop_size, 1]),
 		}
 		return tf.estimator.export.ServingInputReceiver(inputs, inputs)
 	return serving_input_receiver_fn
