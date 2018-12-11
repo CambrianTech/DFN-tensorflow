@@ -37,9 +37,8 @@ def model_fn(features, labels, mode, params, config):
 	is_train = mode == tf.estimator.ModeKeys.TRAIN
 
 	input_image = features["image"]
-	input_normals = features["normals"]
-	input_elevation = features["elevation"]
-	inputs = tf.concat((input_image, input_normals, input_elevation), axis=-1)
+	input_unlit = features["unlit"]
+	inputs = tf.concat((input_image, input_unlit), axis=-1)
 
 	model = DFN(X=inputs, Y=labels, n_classes=params.classes+1,
 				max_iter=params.max_iters, init_lr=params.init_lr, power=params.power,
@@ -82,8 +81,8 @@ def model_fn(features, labels, mode, params, config):
 		evaluation_hooks=evaluation_hooks
 	)
 
-def get_input_fn(input_dir, normals_dir, elevation_dir, output_dir, shuffle, batch_size, epochs, crop_size, classes, augment):
-	def parse_image(input_file_name, normals_file_name, elevation_file_name, output_file_name):
+def get_input_fn(input_dir, unlit_dir, output_dir, shuffle, batch_size, epochs, crop_size, classes, augment):
+	def parse_image(input_file_name, unlit_file_name, output_file_name):
 		def _parse(file_name, crop_fraction=None, channels=3):
 			image_data = tf.read_file(file_name)
 
@@ -106,8 +105,7 @@ def get_input_fn(input_dir, normals_dir, elevation_dir, output_dir, shuffle, bat
 		crop_fraction = np.random.rand(4) * 0.1 if augment else None
 
 		image = _parse(input_file_name, crop_fraction)
-		normals = _parse(normals_file_name, crop_fraction)
-		elevation = _parse(elevation_file_name, crop_fraction, channels=1)
+		unlit = _parse(unlit_file_name, crop_fraction)
 		output = _parse(output_file_name, crop_fraction)
 
 		# Random augmentation if wanted
@@ -129,16 +127,15 @@ def get_input_fn(input_dir, normals_dir, elevation_dir, output_dir, shuffle, bat
 		is_none = 1 - tf.reduce_sum(output, axis=-1, keepdims=True)
 		output = tf.concat((output[:, :, :classes], is_none), axis=-1)
 
-		return {"image": image, "normals": normals, "elevation": elevation}, output
+		return {"image": image, "unlit": unlit}, output
 
 	def input_fn():
 		file_seed = np.random.randint(10000000)
 		input_files = tf.data.Dataset.list_files(input_dir, seed=file_seed)
-		normals_files = tf.data.Dataset.list_files(normals_dir, seed=file_seed)
-		elevation_files = tf.data.Dataset.list_files(elevation_dir, seed=file_seed)
+		unlit_files = tf.data.Dataset.list_files(unlit_dir, seed=file_seed)
 		output_files = tf.data.Dataset.list_files(output_dir, seed=file_seed)
 
-		dataset = tf.data.Dataset.zip((input_files, normals_files, elevation_files, output_files))
+		dataset = tf.data.Dataset.zip((input_files, unlit_files, output_files))
 		if shuffle:
 			dataset = dataset.shuffle(buffer_size=100000)
 		dataset = dataset.map(parse_image, num_parallel_calls=4)
@@ -152,8 +149,7 @@ def get_serving_input_receiver_fn(crop_size):
 	def serving_input_receiver_fn():
 		inputs = {
 			"image": tf.placeholder(tf.float32, [None, crop_size, crop_size, 3]),
-			"normals": tf.placeholder(tf.float32, [None, crop_size, crop_size, 3]),
-			"elevation": tf.placeholder(tf.float32, [None, crop_size, crop_size, 1]),
+			"unlit": tf.placeholder(tf.float32, [None, crop_size, crop_size, 3]),
 		}
 		return tf.estimator.export.ServingInputReceiver(inputs, inputs)
 	return serving_input_receiver_fn
@@ -176,16 +172,14 @@ def main():
 	
 	if args.mode == "train":
 		train_input_fn = get_input_fn(os.path.join(args.input_dir, "train", "main", "*"),
-										os.path.join(args.input_dir, "train", "normals", "*"),
-										os.path.join(args.input_dir, "train", "elevation", "*"),
+										os.path.join(args.input_dir, "train", "unlit", "*"),
 										os.path.join(args.input_dir, "train", "segmentation", "*"),
 										shuffle=True, batch_size=args.batch_size, epochs=args.epochs,
 										crop_size=args.crop_size, classes=args.classes, augment=args.augment)
 		train_spec = tf.estimator.TrainSpec(train_input_fn)
 
 		eval_input_fn = get_input_fn(os.path.join(args.input_dir, "test", "main", "*"),
-										os.path.join(args.input_dir, "test", "normals", "*"),
-										os.path.join(args.input_dir, "test", "elevation", "*"),
+										os.path.join(args.input_dir, "test", "unlit", "*"),
 										os.path.join(args.input_dir, "test", "segmentation", "*"),
 										shuffle=False, batch_size=args.batch_size, epochs=args.epochs,
 										crop_size=args.crop_size, classes=args.classes, augment=False)
@@ -194,8 +188,7 @@ def main():
 		tf.estimator.train_and_evaluate(estimator, train_spec, eval_spec)
 	elif args.mode == "test":
 		eval_input_fn = get_input_fn(os.path.join(args.input_dir, "test", "main", "*"),
-										os.path.join(args.input_dir, "test", "normals", "*"),
-										os.path.join(args.input_dir, "test", "elevation", "*"),
+										os.path.join(args.input_dir, "test", "unlit", "*"),
 										os.path.join(args.input_dir, "test", "segmentation", "*"),
 										shuffle=False, batch_size=args.batch_size, epochs=args.epochs,
 										crop_size=args.crop_size, classes=args.classes, augment=False)
