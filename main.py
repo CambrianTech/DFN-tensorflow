@@ -195,6 +195,11 @@ def main():
 		estimator.evaluate(eval_input_fn)
 	elif args.mode == "export":
 		estimator.export_saved_model(args.output_dir, get_serving_input_receiver_fn(args.crop_size))
+	elif args.mode == "export_tflite":
+		from tensorflow.contrib.lite import TFLiteConverter
+		converter = TFLiteConverter.from_saved_model(args.output_dir)
+		converted = converter.convert()
+		print("Converted:", len(converted))
 	else:
 		print("Unknown mode", args.mode)
 

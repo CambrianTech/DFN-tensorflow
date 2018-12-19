@@ -4,7 +4,24 @@ import tensorflow as tf
 
 def batchnorm(inputs):
 	#return tf.layers.batch_normalization(inputs, axis=3, epsilon=1e-5, momentum=0.1, training=True, gamma_initializer=tf.random_normal_initializer(1.0, 0.02))
-	return tf.contrib.layers.layer_norm(inputs)
+
+	# Temporarily monkey-patch squared_difference since it is not supported on tensorflow lite
+	from tensorflow.python.ops import math_ops
+
+	def _sq_diff(x, y, name=None):
+		print("Fake sq diff called")
+		with tf.name_scope(name, "SquaredDifference", [x, y]):
+			return tf.square(x - y)
+
+	orig_squared_difference = math_ops.squared_difference
+	math_ops.squared_difference = _sq_diff
+
+	output = tf.contrib.layers.layer_norm(inputs)
+
+	math_ops.squared_difference = orig_squared_difference
+
+	return output
+
 
 def lrelu(x, a):
 	return tf.nn.leaky_relu(x, a)
