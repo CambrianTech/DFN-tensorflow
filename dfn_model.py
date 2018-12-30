@@ -20,9 +20,9 @@ def cal_iou(y_true, y_pred):
 	return iou
 
 class DFN(object):
-	def __init__(self, X, Y, max_iter, n_classes, init_lr=0.004, power=0.9, momentum=0.9, stddev=0.02, regularization_scale=0.0001, alpha=0.25, gamma=2.0, fl_weight=0.1):
+	def __init__(self, X, Y, max_iter, n_classes, depth, init_lr=0.004, power=0.9, momentum=0.9, stddev=0.02, regularization_scale=0.0001, alpha=0.25, gamma=2.0, fl_weight=0.1):
 		self.n_classes = n_classes
-
+		self.depth = depth
 		self.max_iter = max_iter
 		self.init_lr = init_lr
 		self.power = power
@@ -52,8 +52,8 @@ class DFN(object):
 	
 	def build_arch(self):
 		######### -*- ResNet-101 -*- #########
-		with tf.variable_scope("resnet_101"):
-			self.ib_2, self.ib_3, self.ib_4, self.ib_5, self.global_avg_pool = nn_base(self.X, self.n_classes, k=0, initializer=tf.random_normal_initializer(0, self.stddev), regularizer=None)
+		with tf.variable_scope("resnet"):
+			self.ib_2, self.ib_3, self.ib_4, self.ib_5, self.global_avg_pool = nn_base(self.X, self.n_classes, depth=self.depth, k=0, initializer=tf.random_normal_initializer(0, self.stddev), regularizer=None)
 		
 		######### -*- Smooth Network -*- #########
 		with tf.variable_scope("smooth"):

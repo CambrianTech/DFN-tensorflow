@@ -21,6 +21,7 @@ parser.add_argument("--crop_size", type=int, default=512, help="crop size of inp
 parser.add_argument("--classes", type=int, default=2, help="number of output channels / classes excluding none (black)")
 parser.add_argument('--models', type=str, default='models', help='path for saving models')
 parser.add_argument("--num_gpus", type=int, default=1, help="number of gpus to use")
+parser.add_argument("--layer_depth", type=int, default=21, help="depth of dfn model 21 for resnet 51 and 34 for res 152")
 parser.add_argument('--alpha', type=float, default=0.25, help='coefficient for focal loss')
 parser.add_argument('--gamma', type=float, default=2.0, help='factor for focal loss')
 parser.add_argument('--fl_weight', type=float, default=0.1, help='regularization coefficient for focal loss')
@@ -41,7 +42,7 @@ def model_fn(features, labels, mode, params, config):
 	input_elevation = features["elevation"]
 	inputs = tf.concat((input_image, input_normals, input_elevation), axis=-1)
 
-	model = DFN(X=inputs, Y=labels, n_classes=params.classes+1,
+	model = DFN(X=inputs, Y=labels, n_classes=params.classes+1, depth=params.layer_depth,
 				max_iter=params.max_iters, init_lr=params.init_lr, power=params.power,
 				momentum=params.momentum, stddev=params.stddev, regularization_scale=params.regularization_scale,
 				alpha=params.alpha, gamma=params.gamma, fl_weight=params.fl_weight)
