@@ -90,7 +90,7 @@ class DFN(object):
 		trainval_summary.append(tf.summary.scalar('focal_loss', self.fl))
 		trainval_summary.append(tf.summary.scalar('total_loss', self.total_loss))
 		trainval_summary.append(tf.summary.scalar('mean_iou', self.mean_iou))
-		trainval_summary.append(tf.summary.image("input_image", tf.cast(255 * self.X[:, :, :, :1], tf.uint8), max_outputs=3))
+		trainval_summary.append(tf.summary.image("input_image", tf.cast(255 * self.X[:, :, :, :3], tf.uint8), max_outputs=3))
 		trainval_summary.append(tf.summary.image("output", tf.cast(255 * self.Y[:, :, :, :1], tf.uint8), max_outputs=3))
 		trainval_summary.append(tf.summary.image("prediction", tf.cast(255 * self.softmax_fuse[:, :, :, :1], tf.uint8), max_outputs=3))
 		self.trainval_summary = tf.summary.merge(trainval_summary)
