@@ -4,7 +4,7 @@ import tensorflow as tf
 from components import *
 
 ######### -*- ResNet-101 -*- #########
-def nn_base(input_tensor, n_classes, k=0, initializer=tf.random_normal_initializer(0, 0.02), regularizer=tf.contrib.layers.l2_regularizer(0.0001)):
+def nn_base(input_tensor, n_classes, depth=21, k=0, initializer=tf.random_normal_initializer(0, 0.02), regularizer=tf.contrib.layers.l2_regularizer(0.0001)):
 	'''
 	ResNet-101:
 		conv1: 7 × 7, 64, stride 2
@@ -57,38 +57,20 @@ def nn_base(input_tensor, n_classes, k=0, initializer=tf.random_normal_initializ
 	
 	######### -*- conv4_x -*- #########
 	cb_4 = conv_block(ib_3c, [256, 256, 1024], kernel_size=3, strides=(2, 2), k=k, initializer=initializer, kernel_regularizer=regularizer, bias_regularizer=regularizer)
-	ib_4a = identity_block(cb_4, [256, 256, 1024], kernel_size=3, k=k, initializer=initializer, kernel_regularizer=regularizer, bias_regularizer=regularizer)
-	ib_4b = identity_block(ib_4a, [256, 256, 1024], kernel_size=3, k=k, initializer=initializer, kernel_regularizer=regularizer, bias_regularizer=regularizer)
-	ib_4c = identity_block(ib_4b, [256, 256, 1024], kernel_size=3, k=k, initializer=initializer, kernel_regularizer=regularizer, bias_regularizer=regularizer)
-	ib_4d = identity_block(ib_4c, [256, 256, 1024], kernel_size=3, k=k, initializer=initializer, kernel_regularizer=regularizer, bias_regularizer=regularizer)
-	ib_4e = identity_block(ib_4d, [256, 256, 1024], kernel_size=3, k=k, initializer=initializer, kernel_regularizer=regularizer, bias_regularizer=regularizer)
-	ib_4f = identity_block(ib_4e, [256, 256, 1024], kernel_size=3, k=k, initializer=initializer, kernel_regularizer=regularizer, bias_regularizer=regularizer)
-	ib_4g = identity_block(ib_4f, [256, 256, 1024], kernel_size=3, k=k, initializer=initializer, kernel_regularizer=regularizer, bias_regularizer=regularizer)
-	ib_4h = identity_block(ib_4g, [256, 256, 1024], kernel_size=3, k=k, initializer=initializer, kernel_regularizer=regularizer, bias_regularizer=regularizer)
-	ib_4i = identity_block(ib_4h, [256, 256, 1024], kernel_size=3, k=k, initializer=initializer, kernel_regularizer=regularizer, bias_regularizer=regularizer)
-	ib_4j = identity_block(ib_4i, [256, 256, 1024], kernel_size=3, k=k, initializer=initializer, kernel_regularizer=regularizer, bias_regularizer=regularizer)
-	ib_4k = identity_block(ib_4j, [256, 256, 1024], kernel_size=3, k=k, initializer=initializer, kernel_regularizer=regularizer, bias_regularizer=regularizer)
-	ib_4l = identity_block(ib_4k, [256, 256, 1024], kernel_size=3, k=k, initializer=initializer, kernel_regularizer=regularizer, bias_regularizer=regularizer)
-	ib_4m = identity_block(ib_4l, [256, 256, 1024], kernel_size=3, k=k, initializer=initializer, kernel_regularizer=regularizer, bias_regularizer=regularizer)
-	ib_4n = identity_block(ib_4m, [256, 256, 1024], kernel_size=3, k=k, initializer=initializer, kernel_regularizer=regularizer, bias_regularizer=regularizer)
-	ib_4o = identity_block(ib_4n, [256, 256, 1024], kernel_size=3, k=k, initializer=initializer, kernel_regularizer=regularizer, bias_regularizer=regularizer)
-	ib_4p = identity_block(ib_4o, [256, 256, 1024], kernel_size=3, k=k, initializer=initializer, kernel_regularizer=regularizer, bias_regularizer=regularizer)
-	ib_4q = identity_block(ib_4p, [256, 256, 1024], kernel_size=3, k=k, initializer=initializer, kernel_regularizer=regularizer, bias_regularizer=regularizer)
-	ib_4r = identity_block(ib_4q, [256, 256, 1024], kernel_size=3, k=k, initializer=initializer, kernel_regularizer=regularizer, bias_regularizer=regularizer)
-	ib_4s = identity_block(ib_4r, [256, 256, 1024], kernel_size=3, k=k, initializer=initializer, kernel_regularizer=regularizer, bias_regularizer=regularizer)
-	ib_4t = identity_block(ib_4s, [256, 256, 1024], kernel_size=3, k=k, initializer=initializer, kernel_regularizer=regularizer, bias_regularizer=regularizer)
-	ib_4u = identity_block(ib_4t, [256, 256, 1024], kernel_size=3, k=k, initializer=initializer, kernel_regularizer=regularizer, bias_regularizer=regularizer)
-	ib_4v = identity_block(ib_4u, [256, 256, 1024], kernel_size=3, k=k, initializer=initializer, kernel_regularizer=regularizer, bias_regularizer=regularizer)
 	
+	term = cb_4
+	for i in range(depth):
+		term = identity_block(term, [256, 256, 1024], kernel_size=3, k=k, initializer=initializer, kernel_regularizer=regularizer, bias_regularizer=regularizer)
+
 	######### -*- conv5_x -*- #########
-	cb_5 = conv_block(ib_4v, [512, 512, 2048], kernel_size=3, strides=(2, 2), k=k, initializer=initializer, kernel_regularizer=regularizer, bias_regularizer=regularizer)
+	cb_5 = conv_block(term, [512, 512, 2048], kernel_size=3, strides=(2, 2), k=k, initializer=initializer, kernel_regularizer=regularizer, bias_regularizer=regularizer)
 	ib_5a = identity_block(cb_5, [512, 512, 2048], kernel_size=3, k=k, initializer=initializer, kernel_regularizer=regularizer, bias_regularizer=regularizer)
 	ib_5b = identity_block(ib_5a, [512, 512, 2048], kernel_size=3, k=k, initializer=initializer, kernel_regularizer=regularizer, bias_regularizer=regularizer)
 	
 	######### -*- pool -*- #########
 	global_avg_pool = tf.nn.avg_pool(ib_5b, ksize=[1, ib_5b.get_shape().as_list()[1], ib_5b.get_shape().as_list()[2], 1], strides=[1, ib_5b.get_shape().as_list()[1], ib_5b.get_shape().as_list()[2], 1], padding='SAME')
 	
-	return ib_2b, ib_3c, ib_4v, ib_5b, global_avg_pool
+	return ib_2b, ib_3c, term, ib_5b, global_avg_pool
 
 ######### -*- Smooth Network -*- #########
 def nn_smooth(ib_2, ib_3, ib_4, ib_5, global_avg_pool, n_classes, k=0, initializer=tf.random_normal_initializer(0, 0.02), regularizer=tf.contrib.layers.l2_regularizer(0.0001)):
