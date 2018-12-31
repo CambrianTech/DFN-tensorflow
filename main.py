@@ -113,10 +113,10 @@ def get_input_fn(input_dir, output_dir, shuffle, batch_size, epochs, crop_size, 
 		# Random augmentation if wanted
 		if augment:
 			ops = [
-				lambda im: tf.image.random_brightness(im, 0.3),
-				lambda im: tf.image.random_contrast(im, lower=0.5, upper=1.5),
-				lambda im: tf.image.random_hue(im, 0.15),
-				lambda im: tf.image.random_saturation(im, lower=0.5, upper=1.5),
+				lambda im: tf.image.random_brightness(im, 0.2),
+				lambda im: tf.image.random_contrast(im, 0.8, 1.2),
+				lambda im: tf.image.random_hue(im, 0.05),
+				lambda im: tf.image.random_saturation(im, 0.8, 1.2),
 				lambda im: im + tf.random.normal(im.shape, stddev=0.02)
 			]
 
