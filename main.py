@@ -44,7 +44,7 @@ def model_fn(features, labels, mode, params, config):
 	# input_elevation = features["elevation"]
 	# inputs = tf.concat((input_image, input_normals, input_elevation), axis=-1)
 
-	inputs = tf.concat(features.values(), axis=-1)
+	inputs = tf.concat(tuple(features.values()), axis=-1)
 
 	model = DFN(X=inputs, Y=labels, n_classes=params.classes+1, depth=params.layer_depth,
 				max_iter=params.max_iters, init_lr=params.init_lr, power=params.power,
