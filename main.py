@@ -47,7 +47,7 @@ def model_fn(features, labels, mode, params, config):
 
 	for _ in range(params.num_pyramids):
             size = input_list[-1].shape[1:3]
-            input_list.append(tf.image.resize_images(real_inputs[-1], (size[0] // 2, size[1] // 2), tf.image.ResizeMethod.BILINEAR))
+            input_list.append(tf.image.resize_images(input_list[-1], (size[0] // 2, size[1] // 2), tf.image.ResizeMethod.BILINEAR))
             
 	inputs = tf.concat(tuple(input_list), axis=-1)
 
