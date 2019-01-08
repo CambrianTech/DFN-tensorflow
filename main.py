@@ -32,6 +32,8 @@ parser.add_argument('--momentum', type=float, default=0.9, help='momentum factor
 parser.add_argument('--stddev', type=float, default=0.02, help='stddev for W initializer')
 parser.add_argument('--regularization_scale', type=float, default=0.0001, help='regularization coefficient for W and b')
 parser.add_argument('--augment', action="store_true", help="augment images")
+parser.add_argument("--num_pyramids", type=int, default=0, help="number of image pyramids")
+
 
 def model_fn(features, labels, mode, params, config):
 	is_predict = mode == tf.estimator.ModeKeys.PREDICT
@@ -41,7 +43,13 @@ def model_fn(features, labels, mode, params, config):
 	# input_normals = features["normals"]
 	# input_elevation = features["elevation"]
 	# inputs = tf.concat((input_image, input_normals, input_elevation), axis=-1)
-	inputs = features["image"]
+	input_list = [features["image"]]
+
+	for _ in range(self.args["num_pyramids"]):
+            size = input_list[-1].shape[1:3]
+            input_list.append(tf.image.resize_images(real_inputs[-1], (size[0] // 2, size[1] // 2), tf.image.ResizeMethod.BILINEAR))
+            
+	inputs = tf.concat(tuple(input_list), axis=-1)
 
 	model = DFN(X=inputs, Y=labels, n_classes=params.classes+1, depth=params.layer_depth,
 				max_iter=params.max_iters, init_lr=params.init_lr, power=params.power,
