@@ -64,7 +64,7 @@ def model_fn(features, labels, mode, params, config):
 	# inputs = tf.concat((input_image, input_normals, input_elevation), axis=-1)
 	#input_list = [features["image"]]
 
-	inputs = spp_layer(features["image"])
+	inputs = spp_layer(tf.concat(features["image"], axis=-1))
 
 	#inputs = tf.concat(input_list, axis=-1)
 
