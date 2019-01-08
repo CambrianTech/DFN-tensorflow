@@ -34,25 +34,6 @@ parser.add_argument('--regularization_scale', type=float, default=0.0001, help='
 parser.add_argument('--augment', action="store_true", help="augment images")
 parser.add_argument("--num_pyramids", type=int, default=0, help="number of image pyramids")
 
-def spp_layer(input_, levels=(6, 3, 2, 1), name='SPP_layer'):
-    shape = input_.get_shape().as_list()
-    with tf.variable_scope(name):
-        pyramid = []
-        for n in levels:
-
-            stride_1 = np.floor(float(shape[1] / n)).astype(np.int32)
-            stride_2 = np.floor(float(shape[2] / n)).astype(np.int32)
-            ksize_1 = stride_1 + (shape[1] % n)
-            ksize_2 = stride_2 + (shape[2] % n)
-            pool = tf.nn.max_pool(input_,
-                                  ksize=[1, ksize_1, ksize_2, 1],
-                                  strides=[1, stride_1, stride_2, 1],
-                                  padding='VALID')
-
-            # print("Pool Level {}: shape {}".format(n, pool.get_shape().as_list()))
-            pyramid.append(tf.reshape(pool, [shape[0], -1]))
-        spp_pool = tf.concat(1, pyramid)
-    return spp_pool
 
 def model_fn(features, labels, mode, params, config):
 	is_predict = mode == tf.estimator.ModeKeys.PREDICT
@@ -62,11 +43,8 @@ def model_fn(features, labels, mode, params, config):
 	# input_normals = features["normals"]
 	# input_elevation = features["elevation"]
 	# inputs = tf.concat((input_image, input_normals, input_elevation), axis=-1)
-	#input_list = [features["image"]]
 
-	inputs = spp_layer(tf.concat(features["image"], axis=-1))
-
-	#inputs = tf.concat(input_list, axis=-1)
+	inputs = tf.concat(features.values(), axis=-1)
 
 	model = DFN(X=inputs, Y=labels, n_classes=params.classes+1, depth=params.layer_depth,
 				max_iter=params.max_iters, init_lr=params.init_lr, power=params.power,
