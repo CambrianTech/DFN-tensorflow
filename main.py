@@ -49,7 +49,7 @@ def model_fn(features, labels, mode, params, config):
             size = input_list[-1].shape[1:3]
             input_list.append(tf.image.resize_images(input_list[-1], (size[0] // 2, size[1] // 2), tf.image.ResizeMethod.BILINEAR))
             
-	inputs = tf.concat(input_list, axis=-1)
+	inputs = tf.concat(input_list, axis=1)
 
 	model = DFN(X=inputs, Y=labels, n_classes=params.classes+1, depth=params.layer_depth,
 				max_iter=params.max_iters, init_lr=params.init_lr, power=params.power,
