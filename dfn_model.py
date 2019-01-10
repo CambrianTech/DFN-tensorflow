@@ -53,15 +53,15 @@ class DFN(object):
 	def build_arch(self):
 		######### -*- ResNet-101 -*- #########
 		with tf.variable_scope("resnet"):
-			self.ib_2, self.ib_3, self.ib_4, self.ib_5, self.ib_6, self.global_avg_pool = nn_base(self.X, self.n_classes, depth=self.depth, k=0, initializer=tf.random_normal_initializer(0, self.stddev), regularizer=None)
+			self.ib_2, self.ib_3, self.ib_4, self.ib_5, self.global_avg_pool = nn_base(self.X, self.n_classes, depth=self.depth, k=0, initializer=tf.random_normal_initializer(0, self.stddev), regularizer=None)
 		
 		######### -*- Smooth Network -*- #########
 		with tf.variable_scope("smooth"):
-			self.b1, self.b2, self.b3, self.b4, self.b5, self.fuse = nn_smooth(self.ib_2, self.ib_3, self.ib_4, self.ib_5, self.ib_6, self.global_avg_pool, self.n_classes,k=0, initializer=tf.random_normal_initializer(0, self.stddev), regularizer=None)
+			self.b1, self.b2, self.b3, self.b4, self.fuse = nn_smooth(self.ib_2, self.ib_3, self.ib_4, self.ib_5, self.global_avg_pool, self.n_classes,k=0, initializer=tf.random_normal_initializer(0, self.stddev), regularizer=None)
 		
 		######### -*- Border Network -*- #########
 		with tf.variable_scope("border"):
-			self.o = nn_border(self.ib_2, self.ib_3, self.ib_4, self.ib_5, self.ib_6, self.n_classes, k=0, initializer=tf.random_normal_initializer(0, self.stddev), regularizer=None)
+			self.o = nn_border(self.ib_2, self.ib_3, self.ib_4, self.ib_5, self.n_classes, k=0, initializer=tf.random_normal_initializer(0, self.stddev), regularizer=None)
 	
 	def loss(self):
 		######### -*- Softmax Loss -*- #########
@@ -69,9 +69,8 @@ class DFN(object):
 		self.softmax_b2, self.ce2 = pw_softmaxwithloss_2d(self.Y, self.b2)
 		self.softmax_b3, self.ce3 = pw_softmaxwithloss_2d(self.Y, self.b3)
 		self.softmax_b4, self.ce4 = pw_softmaxwithloss_2d(self.Y, self.b4)
-		self.softmax_b5, self.ce5 = pw_softmaxwithloss_2d(self.Y, self.b5)
 		self.softmax_fuse, self.cefuse = pw_softmaxwithloss_2d(self.Y, self.fuse)
-		self.total_ce = self.ce1 + self.ce2 + self.ce3 + self.ce4 + self.ce5 + self.cefuse
+		self.total_ce = self.ce1 + self.ce2 + self.ce3 + self.ce4 + self.cefuse
 		
 		######### -*- Focal Loss -*- #########
 		self.fl = focal_loss(self.Y, self.o, alpha=self.alpha, gamma=self.gamma)
