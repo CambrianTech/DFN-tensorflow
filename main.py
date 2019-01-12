@@ -178,12 +178,14 @@ def main():
 	
 	if args.mode == "train":
 		train_input_fn = get_input_fn(os.path.join(args.input_dir, "train", "main", "*"),
+										os.path.join(args.input_dir, "train", "unlit", "*"),
 										os.path.join(args.input_dir, "train", "segmentation", "*"),
 										shuffle=True, batch_size=args.batch_size, epochs=args.epochs,
 										crop_size=args.crop_size, classes=args.classes, augment=args.augment)
 		train_spec = tf.estimator.TrainSpec(train_input_fn)
 
 		eval_input_fn = get_input_fn(os.path.join(args.input_dir, "test", "main", "*"),
+										os.path.join(args.input_dir, "test", "unlit", "*"),
 										os.path.join(args.input_dir, "test", "segmentation", "*"),
 										shuffle=False, batch_size=args.batch_size, epochs=args.epochs,
 										crop_size=args.crop_size, classes=args.classes, augment=False)
@@ -192,12 +194,18 @@ def main():
 		tf.estimator.train_and_evaluate(estimator, train_spec, eval_spec)
 	elif args.mode == "test":
 		eval_input_fn = get_input_fn(os.path.join(args.input_dir, "test", "main", "*"),
+										os.path.join(args.input_dir, "test", "unlit", "*"),
 										os.path.join(args.input_dir, "test", "segmentation", "*"),
 										shuffle=False, batch_size=args.batch_size, epochs=args.epochs,
 										crop_size=args.crop_size, classes=args.classes, augment=False)
 		estimator.evaluate(eval_input_fn)
 	elif args.mode == "export":
 		estimator.export_saved_model(args.output_dir, get_serving_input_receiver_fn(args.crop_size))
+	elif args.mode == "export_tflite":
+		from tensorflow.contrib.lite import TFLiteConverter
+		converter = TFLiteConverter.from_saved_model(args.output_dir)
+		converted = converter.convert()
+		print("Converted:", len(converted))
 	else:
 		print("Unknown mode", args.mode)
 
