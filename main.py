@@ -87,8 +87,8 @@ def model_fn(features, labels, mode, params, config):
 		evaluation_hooks=evaluation_hooks
 	)
 
-def get_input_fn(input_dir, output_dir, shuffle, batch_size, epochs, crop_size, classes, augment):
-	def parse_image(input_file_name, output_file_name):
+def get_input_fn(input_dir, unlit_dir, output_dir, shuffle, batch_size, epochs, crop_size, classes, augment):
+	def parse_image(input_file_name, unlit_file_name, output_file_name):
 		def _parse(file_name, crop_fraction=None, channels=3):
 			image_data = tf.read_file(file_name)
 
@@ -111,6 +111,7 @@ def get_input_fn(input_dir, output_dir, shuffle, batch_size, epochs, crop_size, 
 		crop_fraction = np.random.rand(4) * 0.1 if augment else None
 
 		image = _parse(input_file_name, crop_fraction)
+		unlit = _parse(unlit_file_name, crop_fraction)
 		output = _parse(output_file_name, crop_fraction)
 
 		# Random augmentation if wanted
@@ -132,7 +133,7 @@ def get_input_fn(input_dir, output_dir, shuffle, batch_size, epochs, crop_size, 
 		is_none = 1 - tf.reduce_sum(output, axis=-1, keepdims=True)
 		output = tf.concat((output[:, :, :classes], is_none), axis=-1)
 
-		return {"image": image}, output
+		return {"image": image, "unlit": unlit}, output
 
 	def input_fn():
 		file_seed = np.random.randint(10000000)
