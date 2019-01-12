@@ -135,12 +135,13 @@ def get_input_fn(input_dir, unlit_dir, output_dir, shuffle, batch_size, epochs, 
 
 		return {"image": image, "unlit": unlit}, output
 
-	def input_fn():
+		def input_fn():
 		file_seed = np.random.randint(10000000)
 		input_files = tf.data.Dataset.list_files(input_dir, seed=file_seed)
+		unlit_files = tf.data.Dataset.list_files(unlit_dir, seed=file_seed)
 		output_files = tf.data.Dataset.list_files(output_dir, seed=file_seed)
 
-		dataset = tf.data.Dataset.zip((input_files, output_files))
+		dataset = tf.data.Dataset.zip((input_files, unlit_files, output_files))
 		if shuffle:
 			dataset = dataset.shuffle(buffer_size=100000)
 		dataset = dataset.map(parse_image, num_parallel_calls=4)
@@ -154,6 +155,7 @@ def get_serving_input_receiver_fn(crop_size):
 	def serving_input_receiver_fn():
 		inputs = {
 			"image": tf.placeholder(tf.float32, [None, crop_size, crop_size, 3]),
+			"unlit": tf.placeholder(tf.float32, [None, crop_size, crop_size, 3]),
 		}
 		return tf.estimator.export.ServingInputReceiver(inputs, inputs)
 	return serving_input_receiver_fn
