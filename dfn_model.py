@@ -83,7 +83,7 @@ class DFN(object):
 		self.ground_truth = tf.argmax(self.Y, axis = 3)
 		self.iou = cal_iou(self.ground_truth, self.prediction)
 		self.mean_iou = tf.reduce_mean(self.iou)
-	
+
 	def _summary(self):
 		trainval_summary = []
 		trainval_summary.append(tf.summary.scalar('softmax_loss', self.total_ce))
@@ -93,6 +93,6 @@ class DFN(object):
 		trainval_summary.append(tf.summary.image("input_image", tf.cast(255 * self.X[:, :, :, :3], tf.uint8), max_outputs=3))
 		trainval_summary.append(tf.summary.image("input_unlit", tf.cast(255 * self.X[:, :, :, 3:6], tf.uint8), max_outputs=3))
 		trainval_summary.append(tf.summary.image("output", tf.cast(255 * self.Y[:, :, :, :1], tf.uint8), max_outputs=3))
-		trainval_summary.append(tf.summary.image("prediction", tf.cast(255 * self.softmax_fuse[:, :, :, :3], tf.uint8), max_outputs=3))
+		trainval_summary.append(tf.summary.image("prediction", tf.cast(255 * self.softmax_fuse[:, :, :, :1], tf.uint8), max_outputs=3))
 		self.trainval_summary = tf.summary.merge(trainval_summary)
 
