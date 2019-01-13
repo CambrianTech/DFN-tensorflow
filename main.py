@@ -11,6 +11,9 @@ from dfn_model import DFN
 from glob import glob
 import argparse
 
+from collections import OrderedDict
+
+
 parser = argparse.ArgumentParser()
 
 parser.add_argument('--input_dir', type=str, default='data', help='Training input path')
@@ -133,7 +136,7 @@ def get_input_fn(input_dir, unlit_dir, output_dir, shuffle, batch_size, epochs, 
         is_none = 1 - tf.reduce_sum(output, axis=-1, keepdims=True)
         output = tf.concat((output[:, :, :classes], is_none), axis=-1)
 
-        return {"image": image, "unlit": unlit}, output
+        return OrderedDict([('image', image), ('unlit', unlit)]), output
 
     def input_fn():
         file_seed = np.random.randint(10000000)
