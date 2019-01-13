@@ -137,9 +137,15 @@ def get_input_fn(input_dir, unlit_dir, output_dir, shuffle, batch_size, epochs, 
 
     def input_fn():
         file_seed = np.random.randint(10000000)
+
+        print("Getting list of files at %s" % input_dir)
         input_files = tf.data.Dataset.list_files(input_dir, seed=file_seed)
+        print("Getting list of files at %s" % unlit_dir)
         unlit_files = tf.data.Dataset.list_files(unlit_dir, seed=file_seed)
+        print("Getting list of files at %s" % output_dir)
         output_files = tf.data.Dataset.list_files(output_dir, seed=file_seed)
+
+        print("Preparing dataset")
 
         dataset = tf.data.Dataset.zip((input_files, unlit_files, output_files))
         if shuffle:
